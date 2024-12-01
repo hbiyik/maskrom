@@ -17,8 +17,10 @@
 import usb.core
 import math
 
+RKBINREPO = "https://github.com/rockchip-linux/rkbin"
 DEFAULT_TIMEOUT = 1000
-USB_MAX_BLOCK_SIZE = 512
+BLOCK_SIZE = 512
+USB_MAX_BLOCK_SIZE = BLOCK_SIZE
 RC4_KEY = bytes([124, 78, 3, 4, 85, 5, 9, 7, 45, 44, 123, 56, 23, 13, 23, 17])
 RC4_INITIAL = 0xffff
 USB_TRANSFER_BLOCKSIZE = 4096
@@ -59,7 +61,7 @@ DEVICE_RK3566 = "rk3566"
 DEVICE_RK3588 = "rk3588"
 
 
-SOC_RK27 = "rk27"
+SOC_NAME_RK27 = "rk27"
 SOC_RK28 = "rk28"
 SOC_RK281X = "rk281x"
 SOC_RK29 = "rk29"
@@ -91,7 +93,7 @@ FLASH_MANUFACTURERS = {0: MANUFACTURER_SAMSUNG,
                        7: MANUFACTURER_INTEL
                        }
 
-
+RK_VENDOR_ID = 0x2207
 MASKROM_VENDOR_IDS = [0x2207, 0x071b, 0x0bb4]
 MASKROM_PRODUCT_IDS = {0x281a: DEVICE_RK2818,
                        0x290a: DEVICE_RK2918,
@@ -113,7 +115,7 @@ MASKROM_PRODUCT_IDS = {0x281a: DEVICE_RK2818,
                        }
 
 
-ROCKCHIP_SOC_TYPES = {0x10: SOC_RK27,
+ROCKCHIP_SOC_TYPES = {0x10: SOC_NAME_RK27,
                       0x11: SOC_CAYMAN,
                       0x20: SOC_RK28,
                       0x21: SOC_RK281X,
@@ -129,15 +131,15 @@ ROCKCHIP_SOC_TYPES = {0x10: SOC_RK27,
                       0x80: SOC_RK32,
                       }
 
-ROCKCHIP_SOC_TAGS = {"RK27": SOC_RK27,
+ROCKCHIP_SOC_TAGS = {"RK27": SOC_NAME_RK27,
                      "273A": SOC_CAYMAN,
-                     "281X": SOC_RK281X,
+                 "281X": SOC_RK281X,
                      "282B": SOC_PANDA,
                      "290X": SOC_RK29,
-                     "292X": SOC_RK292X,
-                     "300A": SOC_RK30,
-                     "310A": SOC_RK30B,
-                     "310B": SOC_RK31,
+                 "292X": SOC_RK292X,
+                 "300A": SOC_RK30,
+                 "310A": SOC_RK30B,
+                 "310B": SOC_RK31,
                      "320A": SOC_RK32,
                      "262C": SOC_SMART,
                      "nano": SOC_NANO,
@@ -150,6 +152,10 @@ class MaskromException(Exception):
 
 
 class LimitsException(MaskromException):
+    pass
+
+
+class IdbException(MaskromException):
     pass
 
 
