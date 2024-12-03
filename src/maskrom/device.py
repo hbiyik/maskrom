@@ -45,7 +45,7 @@ class Device:
         return self.usb.response(request.test_unit_ready, None)
 
     def read_capability(self):
-        return self.usb.response(request.read_capability, None)
+        return self.usb.response(request.read_capability, response.Capability)
 
     def device_reset(self, subcode=0):
         return self.usb.response(request.device_reset, None, subcode)
