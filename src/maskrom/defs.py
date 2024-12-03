@@ -20,7 +20,8 @@ import math
 RKBINREPO = "https://github.com/rockchip-linux/rkbin"
 DEFAULT_TIMEOUT = 1000
 BLOCK_SIZE = 512
-USB_MAX_BLOCK_SIZE = BLOCK_SIZE
+USB_MAX_BLOCK_COUNT = 128
+USB_MAX_BLOCK_SIZE = BLOCK_SIZE * USB_MAX_BLOCK_COUNT
 RC4_KEY = bytes([124, 78, 3, 4, 85, 5, 9, 7, 45, 44, 123, 56, 23, 13, 23, 17])
 RC4_INITIAL = 0xffff
 USB_TRANSFER_BLOCKSIZE = 4096
@@ -187,3 +188,12 @@ class PrettyInt(int):
 class Printable:
     def __repr__(self):
         return ", ".join([f"{k}={getattr(self, k)}" for k in self.__dict__ if not k.startswith("_")])
+
+
+def iterbatch(length, size, offset):
+    factor = int(length / size)
+    for _ in range(factor):
+        yield offset, size
+        offset += size
+    if length > factor * size:
+        yield offset, length - offset

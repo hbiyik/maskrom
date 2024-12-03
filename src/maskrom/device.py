@@ -15,6 +15,8 @@
  along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 
+import itertools
+
 from maskrom import request
 from maskrom import response
 from maskrom import usb
@@ -50,8 +52,9 @@ class Device:
     def device_reset(self, subcode=0):
         return self.usb.response(request.device_reset, None, subcode)
 
-    def read_lba(self, offset, length):
-        return self.usb.response(request.read_lba, None, offset, length)
+    def iter_lba(self, offset, length):
+        for offset, size in defs.iterbatch(length, defs.USB_MAX_BLOCK_COUNT, offset):
+            yield self.usb.response(request.read_lba, None, offset, size)
 
     def read_sector(self, offset, length):
         return self.usb.response(request.read_sector, None, offset, length)

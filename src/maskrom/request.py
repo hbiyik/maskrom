@@ -30,7 +30,7 @@ SECTOR_SIZE = 512
 OOB_SIZE = 16
 
 
-class c_request(ctypes.Structure):
+class c_request(ctypes.BigEndianStructure):
     _pack_ = 1
     _fields_ = [
             ('sign', ctypes.c_char * 4),

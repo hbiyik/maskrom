@@ -18,15 +18,15 @@
 import ctypes
 
 
-class c_rkusbop(ctypes.Structure):
+class c_rkusbop(ctypes.BigEndianStructure):
     _pack_ = 1
     _fields_ = [
             ('code', ctypes.c_uint8),
             ('subcode', ctypes.c_uint8),
             ('address', ctypes.c_uint32),
-            ('res1', ctypes.c_uint8),
+            ('reserved0', ctypes.c_uint8),
             ('length', ctypes.c_uint16),
-            ('res1', ctypes.c_uint8 * 7),
+            ('reserved1', ctypes.c_uint8 * 7),
             ]
 
 

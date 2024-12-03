@@ -25,7 +25,7 @@ STATUS_OK = 0
 STATUS_FAIL = 1
 
 
-class c_response(ctypes.Structure):
+class c_response(ctypes.BigEndianStructure):
     _pack_ = 1
     _fields_ = [
         ('sign', ctypes.c_char * 4),
@@ -34,7 +34,7 @@ class c_response(ctypes.Structure):
         ('status', ctypes.c_int8)]
 
 
-class c_flashinfo(ctypes.Structure):
+class c_flashinfo(ctypes.BigEndianStructure):
     _pack_ = 1
     _fields_ = [
         ('flashsize', ctypes.c_uint),
@@ -113,7 +113,7 @@ class Capability(defs.Printable):
         self.vendor_storage = bool(buffer[0] & (1 << 1))
         self.first_4Mb_maccess = bool(buffer[0] & (1 << 2))
         self.read_lba = bool(buffer[0] & (1 << 3))
-        self.new_vendors_torage = bool(buffer[0] & (1 << 4))
+        self.new_vendor_storage = bool(buffer[0] & (1 << 4))
         self.read_com_log = bool(buffer[0] & (1 << 5))
         self.read_idb_config = bool(buffer[0] & (1 << 6))
         self.read_secure_mode = bool(buffer[0] & (1 << 7))

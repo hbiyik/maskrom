@@ -73,7 +73,7 @@ class Usb:
                 return response.Unsupported()
         retval = True
         if req.length:
-            retval = self.read(defs.USB_MAX_BLOCK_SIZE)
+            retval = self.read(max(min(defs.USB_MAX_BLOCK_SIZE, req.length), req.length))
             # check first if invalid response is provided
             respsize = ctypes.sizeof(response.c_response)
             if len(retval) >= respsize:
@@ -82,7 +82,7 @@ class Usb:
                     if first_resp.status != response.STATUS_OK:
                         return response.Unsupported()
                     return True
-        resp_buffer = self.read(defs.USB_MAX_BLOCK_SIZE)
+        resp_buffer = self.read(min(defs.USB_MAX_BLOCK_SIZE, ctypes.sizeof(response.c_response)))
         resp = response.c_response.from_buffer(resp_buffer)
         if not resp.sign == response.SIGNATURE:
             raise defs.CommandException(f"Received wrong response signature {resp.sign}, expected {response.SIGNATURE}",
