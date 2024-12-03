@@ -69,11 +69,19 @@ class ChipInfo(defs.Printable):
         self.__chipinfo = c_chipinfo.from_buffer(buffer[:buflen])
         self._reserved = buffer[buflen:]
         self.tag = self.__chipinfo.tag[::-1].decode()
-        year = int(self.__chipinfo.year[::-1])
-        month = int(self.__chipinfo.month)
-        day = int(self.__chipinfo.day)
-        self.date = datetime.datetime(year, month, day)
-        self.revision = self.__chipinfo.revision[::-1].decode()
+        try:
+            year = int(self.__chipinfo.year[::-1])
+            month = int(self.__chipinfo.month)
+            day = int(self.__chipinfo.day)
+            self.date = datetime.datetime(year, month, day)
+        except ValueError:
+            self.day = bytes(self.__chipinfo.day)
+            self.moth = bytes(self.__chipinfo.month)
+            self.date = bytes(self.__chipinfo.year)
+        try:
+            self.revision = self.__chipinfo.revision[::-1].decode()
+        except ValueError:
+            self.revision = self.__chipinfo.revision[::-1]
         self.socid = defs.ROCKCHIP_SOC_TAGS.get(self.tag, defs.UNKNOWN)
 
 
@@ -94,6 +102,26 @@ class FlashInfo(defs.Printable):
         self.manufacturer = self.__flashinfo.manufacturer
         self.manufacturername = defs.FLASH_MANUFACTURERS.get(self.manufacturer, defs.UNKNOWN)
         self.chipselect = self.__flashinfo.chipselect
+
+
+class Capability(defs.Printable):
+    def __init__(self, buffer):
+        if len(buffer) < 8:
+            return ValueError(f"Unexpected buffer length for capability, expected 8 received {len(buffer)}")
+        self.__buffer = buffer
+        self.direct_lba = bool(buffer[0] & (1 << 0))
+        self.vendor_storage = bool(buffer[0] & (1 << 1))
+        self.first_4Mb_maccess = bool(buffer[0] & (1 << 2))
+        self.read_lba = bool(buffer[0] & (1 << 3))
+        self.new_vendors_torage = bool(buffer[0] & (1 << 4))
+        self.read_com_log = bool(buffer[0] & (1 << 5))
+        self.read_idb_config = bool(buffer[0] & (1 << 6))
+        self.read_secure_mode = bool(buffer[0] & (1 << 7))
+        self.new_idb = bool(buffer[1] & (1 << 0))
+        self.switch_storage = bool(buffer[1] & (1 << 1))
+        self.lba_parity = bool(buffer[1] & (1 << 2))
+        self.read_otp_chip = bool(buffer[1] & (1 << 3))
+        self.switch_usb3 = bool(buffer[1] & (1 << 4))
 
 
 class Unsupported:
