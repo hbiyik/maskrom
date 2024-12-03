@@ -117,7 +117,6 @@ def iteridbs(f):
             try:
                 idblock = IdBlock(block)
                 idblock.read(f)
-            except defs.IdbException as e:
+                yield idblock
+            except defs.IdbException:
                 continue
-                # print(int(f.tell()) / defs.BLOCK_SIZE, e)
-            print("found idb:", idblock)

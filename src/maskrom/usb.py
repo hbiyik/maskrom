@@ -98,6 +98,8 @@ class Usb:
 
     def response(self, request_ob, response_ob, *args, **kwargs):
         retval = self.request(request_ob(*args, **kwargs))
+        if response_ob and isinstance(retval, bool):
+            retval = response.Unsupported()
         if not response_ob or isinstance(retval, response.Unsupported):
             return retval
         else:
