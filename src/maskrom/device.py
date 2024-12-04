@@ -27,6 +27,12 @@ class Device:
     def __init__(self, offset=0, timeout=defs.DEFAULT_TIMEOUT):
         self.usb = usb.Usb(offset, timeout)
 
+    def flush(self):
+        try:
+            self.usb.read(defs.BLOCK_SIZE)
+        except defs.MaskromException:
+            pass
+
     def load_sram(self, path, encrypt=True):
         return self.usb.loadfiletoram(path, True, encrypt)
 
@@ -44,17 +50,26 @@ class Device:
         return self.usb.response(request.read_chip_info, response.ChipInfo)
 
     def test_unit_ready(self):
-        return self.usb.response(request.test_unit_ready, None)
+        return self.usb.response(request.test_unit_ready, response.Status)
 
     def read_capability(self):
         return self.usb.response(request.read_capability, response.Capability)
 
     def device_reset(self, subcode=0):
-        return self.usb.response(request.device_reset, None, subcode)
+        return self.usb.response(request.device_reset, response.Status, subcode)
 
     def iter_lba(self, offset, length):
         for offset, size in defs.iterbatch(length, defs.USB_MAX_BLOCK_COUNT, offset):
-            yield self.usb.response(request.read_lba, None, offset, size)
+            yield self.usb.response(request.read_lba, response.Buffer, offset, size)
 
-    def read_sector(self, offset, length):
-        return self.usb.response(request.read_sector, None, offset, length)
+    def iter_sector(self, offset, length):
+        for offset, size in defs.iterbatch(length, defs.USB_MAX_SECTOR_COUNT, offset):
+            yield self.usb.response(request.read_sector, response.Buffer, offset, size)
+
+    def iter_ram(self, offset, size):
+        for offset, size in defs.iterbatch(size, defs.USB_MAX_TRANSFER_SIZE, offset):
+            yield self.usb.response(request.read_sdram, response.Buffer, offset, size)
+
+    # def write_ram(self, offset, buffer):
+    #     for chunk in itertools.batched(buffer, defs.USB_MAX_TRANSFER_SIZE):
+    #        yield self.usb.response(request.write_sdram, bytes, offset, size)

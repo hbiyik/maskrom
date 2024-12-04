@@ -19,6 +19,7 @@
 import ctypes
 import datetime
 from maskrom import defs
+from maskrom import response
 
 SIGNATURE = b"USBS"
 STATUS_OK = 0
@@ -26,6 +27,7 @@ STATUS_FAIL = 1
 
 
 class c_response(ctypes.BigEndianStructure):
+    buffer = None
     _pack_ = 1
     _fields_ = [
         ('sign', ctypes.c_char * 4),
@@ -59,15 +61,22 @@ class c_chipinfo(ctypes.BigEndianStructure):
 
 
 class FlashId(defs.Printable):
-    def __init__(self, buffer):
-        self.id = bytes(buffer).decode()
+    def __init__(self, req):
+        if not req.buffer:
+            raise defs.CommandException("Empty Buffer")
+        try:
+            self.id = bytes(req.buffer).decode()
+        except ValueError:
+            self.id = bytes(req.buffer)
 
 
 class ChipInfo(defs.Printable):
-    def __init__(self, buffer):
+    def __init__(self, req):
+        if not req.buffer:
+            raise defs.CommandException("Empty Buffer")
         buflen = ctypes.sizeof(c_chipinfo)
-        self.__chipinfo = c_chipinfo.from_buffer(buffer[:buflen])
-        self._reserved = buffer[buflen:]
+        self.__chipinfo = c_chipinfo.from_buffer(req.buffer[:buflen])
+        self._reserved = req.buffer[buflen:]
         self.tag = self.__chipinfo.tag[::-1].decode()
         try:
             year = int(self.__chipinfo.year[::-1])
@@ -75,9 +84,7 @@ class ChipInfo(defs.Printable):
             day = int(self.__chipinfo.day)
             self.date = datetime.datetime(year, month, day)
         except ValueError:
-            self.day = bytes(self.__chipinfo.day)
-            self.moth = bytes(self.__chipinfo.month)
-            self.date = bytes(self.__chipinfo.year)
+            self.date = bytes(self.__chipinfo.year + self.__chipinfo.month + self.__chipinfo.day)
         try:
             self.revision = self.__chipinfo.revision[::-1].decode()
         except ValueError:
@@ -86,10 +93,12 @@ class ChipInfo(defs.Printable):
 
 
 class FlashInfo(defs.Printable):
-    def __init__(self, buffer, numchips=2):
+    def __init__(self, req, numchips=2):
+        if not req.buffer:
+            raise defs.CommandException("Empty Buffer")
         infolen = ctypes.sizeof(c_flashinfo)
-        self.__flashinfo = c_flashinfo.from_buffer(buffer[:infolen])
-        self._reserved = buffer[infolen:]
+        self.__flashinfo = c_flashinfo.from_buffer(req.buffer[:infolen])
+        self._reserved = req.buffer[infolen:]
         # convert to bytes
         self.numchips = numchips
         self.flashsize = defs.PrettyInt(self.__flashinfo.flashsize * 1024 / numchips)
@@ -105,25 +114,45 @@ class FlashInfo(defs.Printable):
 
 
 class Capability(defs.Printable):
-    def __init__(self, buffer):
-        if len(buffer) < 8:
-            return ValueError(f"Unexpected buffer length for capability, expected 8 received {len(buffer)}")
-        self.__buffer = buffer
-        self.direct_lba = bool(buffer[0] & (1 << 0))
-        self.vendor_storage = bool(buffer[0] & (1 << 1))
-        self.first_4Mb_maccess = bool(buffer[0] & (1 << 2))
-        self.read_lba = bool(buffer[0] & (1 << 3))
-        self.new_vendor_storage = bool(buffer[0] & (1 << 4))
-        self.read_com_log = bool(buffer[0] & (1 << 5))
-        self.read_idb_config = bool(buffer[0] & (1 << 6))
-        self.read_secure_mode = bool(buffer[0] & (1 << 7))
-        self.new_idb = bool(buffer[1] & (1 << 0))
-        self.switch_storage = bool(buffer[1] & (1 << 1))
-        self.lba_parity = bool(buffer[1] & (1 << 2))
-        self.read_otp_chip = bool(buffer[1] & (1 << 3))
-        self.switch_usb3 = bool(buffer[1] & (1 << 4))
+    def __init__(self, req):
+        if not req.buffer:
+            raise defs.CommandException("Empty Buffer")
+        if len(req.buffer) < 8:
+            return ValueError(f"Unexpected req.buffer length for capability, expected 8 received {len(req.buffer)}")
+        self.direct_lba = bool(req.buffer[0] & (1 << 0))
+        self.vendor_storage = bool(req.buffer[0] & (1 << 1))
+        self.first_4Mb_maccess = bool(req.buffer[0] & (1 << 2))
+        self.read_lba = bool(req.buffer[0] & (1 << 3))
+        self.new_vendor_storage = bool(req.buffer[0] & (1 << 4))
+        self.read_com_log = bool(req.buffer[0] & (1 << 5))
+        self.read_idb_config = bool(req.buffer[0] & (1 << 6))
+        self.read_secure_mode = bool(req.buffer[0] & (1 << 7))
+        self.new_idb = bool(req.buffer[1] & (1 << 0))
+        self.switch_storage = bool(req.buffer[1] & (1 << 1))
+        self.lba_parity = bool(req.buffer[1] & (1 << 2))
+        self.read_otp_chip = bool(req.buffer[1] & (1 << 3))
+        self.switch_usb3 = bool(req.buffer[1] & (1 << 4))
 
 
 class Unsupported:
+    def __init__(self, msg=""):
+        self.msg = msg
+
     def __repr__(self):
-        return "unsupported"
+        retval = "Unsupported Request"
+        if self.msg:
+            retval += f": {self.msg}"
+        return retval
+
+
+class Status(defs.Printable):
+    def __init__(self, req):
+        self.status = req.status == response.STATUS_OK
+
+
+class Buffer:
+    def __init__(self, req):
+        self.buffer = req.buffer
+
+    def __repr__(self):
+        return f"Buffer({len(self.buffer)})"

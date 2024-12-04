@@ -22,6 +22,7 @@ import usb.util
 from maskrom import crc
 from maskrom import defs
 from maskrom import rc4
+from maskrom import request
 from maskrom import response
 
 
@@ -60,30 +61,19 @@ class Usb:
         try:
             return self.ep_read.read(size, timeout=timeout)
         except usb.core.USBError as ue:
+            if ue.errno == errno.EOVERFLOW:
+                return self.read(defs.BLOCK_SIZE)
             raise defs.CommandException(ue.strerror,
                                         ue.backend_error_code,
                                         ue.errno)
 
-    def request(self, req):
-        req_buffer = bytes(req)
-        try:
-            self.write(req_buffer)
-        except defs.CommandException as e:
-            if e.errno == errno.EIO:
-                return response.Unsupported()
-        retval = True
-        if req.length:
-            retval = self.read(max(min(defs.USB_MAX_BLOCK_SIZE, req.length), req.length))
-            # check first if invalid response is provided
-            respsize = ctypes.sizeof(response.c_response)
-            if len(retval) >= respsize:
-                first_resp = response.c_response.from_buffer(retval[:respsize])
-                if first_resp.sign == response.SIGNATURE and first_resp.tag == req.tag:
-                    if first_resp.status != response.STATUS_OK:
-                        return response.Unsupported()
-                    return True
-        resp_buffer = self.read(min(defs.USB_MAX_BLOCK_SIZE, ctypes.sizeof(response.c_response)))
-        resp = response.c_response.from_buffer(resp_buffer)
+    def readbulk(self):
+        pass
+
+    def parseresponse(self, req, buffer=None):
+        if not buffer:
+            buffer = self.read(ctypes.sizeof(response.c_response))
+        resp = response.c_response.from_buffer(buffer)
         if not resp.sign == response.SIGNATURE:
             raise defs.CommandException(f"Received wrong response signature {resp.sign}, expected {response.SIGNATURE}",
                                         resp.status,
@@ -92,18 +82,43 @@ class Usb:
             raise defs.CommandException(f"Received wrong response to non existent request, recevied tag {resp.tag}, expected {req.tag}",
                                         resp.status,
                                         errno.EIO)
-        if resp.status != response.STATUS_OK:
-            return False
-        return retval
+        return resp
+
+    def requestin(self, req):
+        bulk_buffer = None
+        if req.length:
+            bulk_buffer = self.read(req.length)
+            # in case of buggy implementations spit premature response
+            try:
+                if not len(bulk_buffer) < ctypes.sizeof(response.c_response):
+                    resp = self.parseresponse(req, bulk_buffer)
+                    return resp
+            except defs.CommandException as _ue:
+                pass
+        resp = self.parseresponse(req)
+        resp.buffer = bulk_buffer
+        return resp
+
+    def requestout(self, req):
+        self.write(req.buffer)
+        resp = self.parseresponse(self.read(ctypes.sizeof(response.c_response)), req)
+        return resp
+
+    def request(self, req):
+        req_buffer = bytes(req)
+        self.write(req_buffer)
+        if req.flag == request.DIRECTION_IN:
+            return self.requestin(req)
+        elif req.flag == request.DIRECTION_OUT:
+            return self.requestout(req)
+        else:
+            raise defs.CommandException(f"Unknown request flag {req.op.flag}")
 
     def response(self, request_ob, response_ob, *args, **kwargs):
-        retval = self.request(request_ob(*args, **kwargs))
-        if response_ob and isinstance(retval, bool):
-            retval = response.Unsupported()
-        if not response_ob or isinstance(retval, response.Unsupported):
-            return retval
-        else:
-            return response_ob(retval)
+        try:
+            return response_ob(self.request(request_ob(*args, **kwargs)))
+        except defs.CommandException as ue:
+            return response.Unsupported(str(ue))
 
     def vendorload(self, buffer, sram=True):
         return self.dev.ctrl_transfer(defs.CONTROL_REQUEST_TYPE_VENDOR,
@@ -118,7 +133,7 @@ class Usb:
         # transfer is finished when last unaligned block is sent
         # if file-size + 2 byte crc is block aligned, send an extra 0x00 padding to
         # un-align the total transfer size and finish the transfer
-        if (len(buffer) + 2) % defs.USB_TRANSFER_BLOCKSIZE == 0:
+        if (len(buffer) + 2) % defs.USB_TRANSFER_ALIGN == 0:
             buffer += b"\0\0"
 
         if encrypt:
@@ -126,5 +141,5 @@ class Usb:
 
         buffer += crc.crc16(defs.RC4_INITIAL, buffer)
 
-        for block in itertools.batched(buffer, defs.USB_TRANSFER_BLOCKSIZE):
+        for block in itertools.batched(buffer, defs.USB_TRANSFER_ALIGN):
             self.vendorload(block, sram)

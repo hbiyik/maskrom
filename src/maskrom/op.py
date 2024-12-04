@@ -70,6 +70,18 @@ def device_reset(subcode):
     return c_rkusbop(code=255, subcode=subcode)
 
 
+def read_sdram(address=0, size=0):
+    return c_rkusbop(code=23, subcode=0, address=address, length=size)
+
+
+def write_sdram(address=0, size=0):
+    return c_rkusbop(code=24, subcode=0, address=address, length=size)
+
+
+def execute_sdram(address=0):
+    return c_rkusbop(code=25, subcode=170, address=address)
+
+
 # below op codes are not exactly known, reference: rkdeveloptool
 def test_bad_block(subcode=0, address=0, length=0):
     return c_rkusbop(code=3, subcode=subcode, address=address, length=length)
@@ -89,18 +101,6 @@ def erase_force(subcode=0, address=0, length=0):
 
 def erase_systemdisk(subcode=0, address=0, length=0):
     return c_rkusbop(code=22, subcode=subcode, address=address, length=length)
-
-
-def read_sdram(subcode=0, address=0, length=0):
-    return c_rkusbop(code=23, subcode=subcode, address=address, length=length)
-
-
-def write_sdram(subcode=0, address=0, length=0):
-    return c_rkusbop(code=24, subcode=subcode, address=address, length=length)
-
-
-def execute_sdram(subcode=0, address=0, length=0):
-    return c_rkusbop(code=25, subcode=subcode, address=address, length=length)
 
 
 def set_reset_flag(subcode=0, address=0, length=0):

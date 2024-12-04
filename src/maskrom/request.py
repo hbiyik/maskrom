@@ -25,12 +25,12 @@ SIGNATURE = b"USBC"
 DIRECTION_OUT = 0
 DIRECTION_IN = 128
 
-MAX_SECTOR_COUNT = 32
 SECTOR_SIZE = 512
 OOB_SIZE = 16
 
 
 class c_request(ctypes.BigEndianStructure):
+    buffer = None
     _pack_ = 1
     _fields_ = [
             ('sign', ctypes.c_char * 4),
@@ -60,60 +60,78 @@ def read_flash_id():
 
 
 def write_sector(pos, count):
-    if count > MAX_SECTOR_COUNT:
-        raise defs.LimitsException(f"Maximum allowed number of sectors to read is {MAX_SECTOR_COUNT} but {count} given")
+    if count > defs.USB_MAX_SECTOR_COUNT:
+        raise defs.LimitsException(f"Maximum allowed number of sectors to read is {defs.USB_MAX_SECTOR_COUNT} but {count} given")
 
     return c_request(sign=SIGNATURE, tag=gettag(),
-                     flags=DIRECTION_OUT, cblen=10, length=count * (SECTOR_SIZE + OOB_SIZE),
+                     flag=DIRECTION_OUT, cblen=10, length=count * (SECTOR_SIZE + OOB_SIZE),
                      op=op.write_sector(address=pos, length=count))
 
 
 def read_sector(pos, count):
-    if count > MAX_SECTOR_COUNT:
-        raise defs.LimitsException(f"Maximum allowed number of sectors to read is {MAX_SECTOR_COUNT} but {count} given")
+    if count > defs.USB_MAX_SECTOR_COUNT:
+        raise defs.LimitsException(f"Maximum allowed number of sectors to read is {defs.USB_MAX_SECTOR_COUNT} but {count} given")
 
     return c_request(sign=SIGNATURE, tag=gettag(),
-                     flags=DIRECTION_OUT, cblen=10, length=count * (SECTOR_SIZE + OOB_SIZE),
+                     flag=DIRECTION_IN, cblen=10, length=count * (SECTOR_SIZE + OOB_SIZE),
                      op=op.read_sector(address=pos, length=count))
 
 
 def read_lba(pos, count):
     return c_request(sign=SIGNATURE, tag=gettag(),
-                     flags=DIRECTION_IN, cblen=10, length=count * SECTOR_SIZE,
+                     flag=DIRECTION_IN, cblen=10, length=count * SECTOR_SIZE,
                      op=op.read_lba(address=pos, length=count))
+
+
+def read_sdram(pos, size):
+    return c_request(sign=SIGNATURE, tag=gettag(),
+                     flag=DIRECTION_IN, cblen=10, length=size,
+                     op=op.read_sdram(address=pos, size=size))
+
+
+def write_sdram(pos, size):
+    return c_request(sign=SIGNATURE, tag=gettag(),
+                     flag=DIRECTION_OUT, cblen=10, length=size,
+                     op=op.write_sdram(address=pos, size=size))
+
+
+def execute_sdram(pos):
+    return c_request(sign=SIGNATURE, tag=gettag(),
+                     flag=DIRECTION_OUT, cblen=10,
+                     op=op.execute_sdram(address=pos))
 
 
 def write_lba(pos, count):
     return c_request(sign=SIGNATURE, tag=gettag(),
-                     flags=DIRECTION_OUT, cblen=10, length=count * SECTOR_SIZE,
+                     flag=DIRECTION_OUT, cblen=10, length=count * SECTOR_SIZE,
                      op=op.write_lba(address=pos, length=count))
 
 
 def read_flash_info():
     return c_request(sign=SIGNATURE, tag=gettag(),
-                     flags=DIRECTION_IN, cblen=6, length=defs.USB_MAX_BLOCK_SIZE,
+                     flag=DIRECTION_IN, cblen=6, length=defs.USB_MAX_TRANSFER_SIZE,
                      op=op.read_flash_info())
 
 
 def read_chip_info():
     return c_request(sign=SIGNATURE, tag=gettag(),
-                     flags=DIRECTION_IN, cblen=6, length=16,
+                     flag=DIRECTION_IN, cblen=6, length=16,
                      op=op.read_chip_info())
 
 
 def erase_lba(pos, count):
     return c_request(sign=SIGNATURE, tag=gettag(),
-                     flags=DIRECTION_OUT, cblen=10,
+                     flag=DIRECTION_OUT, cblen=10,
                      op=op.erase_lba(address=pos, length=count))
 
 
 def read_capability():
     return c_request(sign=SIGNATURE, tag=gettag(),
-                     flags=DIRECTION_IN, cblen=6, length=8,
+                     flag=DIRECTION_IN, cblen=6, length=8,
                      op=op.read_capability())
 
 
 def device_reset(subcode):
     return c_request(sign=SIGNATURE, tag=gettag(),
-                     flags=DIRECTION_IN, cblen=6,
+                     flag=DIRECTION_IN, cblen=6,
                      op=op.device_reset(subcode))
